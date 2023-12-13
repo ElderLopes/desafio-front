@@ -1,10 +1,20 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 
+import InputMask from "react-input-mask";
+import { useForm } from "react-hook-form";
+import * as yup from "yup";
+import { yupResolver } from "@hookform/resolvers/yup";
 import axios from "axios";
 import Table from "react-bootstrap/Table";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import Modal from "react-bootstrap/Modal";
+
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import StarIcon from "@mui/icons-material/Star";
+import StarOutlineIcon from "@mui/icons-material/StarOutline";
+import AddCircleRoundedIcon from "@mui/icons-material/AddCircleRounded";
 
 import {
   Container,
@@ -13,28 +23,49 @@ import {
   Button,
   ContainerTable,
   CustomStyledModal,
+  ErrorMessage,
 } from "./styless";
 
 const App = () => {
+  const schema = yup
+    .object({
+      name: yup.string().required("O nome é obrigatório"),
+      email: yup
+        .string()
+        .email("Digite um e-mail valido ")
+        .required("O e-mail é obrigatório"),
+      telephone: yup
+        .string()
+        .matches(/^\(\d{2}\) \d{1} \d{4}-\d{4}$/, "Telefone inválido")
+        .required("O Telefone é obrigatório"),
+      supplierType: yup.string().required("O tipo de fornecedor é obrigatório"),
+    })
+    .required();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: yupResolver(schema),
+  });
+
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState([]);
-  const [newSupplierData, setNewSupplierData] = useState({
+
+  const [, setNewSupplierData] = useState({
     name: "",
     email: "",
     supplierType: "",
     telephone: "",
     observation: "",
   });
-  const [editingSupplier, setEditingSupplier] = useState(null); 
 
-  const inputName = useRef();
-  const inputEmail = useRef();
-  const select = useRef();
-  const inputTel = useRef();
-  const inputObs = useRef();
+  const [editingSupplier, setEditingSupplier] = useState(null);
 
   const [show, setShow] = useState(false);
 
+  const handleShow = () => setShow(true);
   const handleClose = () => {
     setShow(false);
     setNewSupplierData({
@@ -44,47 +75,53 @@ const App = () => {
       telephone: "",
       observation: "",
     });
-    setEditingSupplier(null); 
   };
 
-  const handleShow = () => setShow(true);
-
-  const handleSaveChanges = async () => {
+  const handleSaveChanges = async (data) => {
     try {
       if (editingSupplier) {
-        
-        await  EditSelected(newSupplierData);
+        await EditSelected(data);
       } else {
-        await AddSupplier(newSupplierData);
+        await AddSupplier(data);
       }
-  
-      reloadData();
       handleClose();
+      reloadData();
     } catch (error) {
       console.error("Erro ao salvar alterações:", error);
     }
   };
 
-  const EditSelected = async () => {
+  const EditSelected = async (data) => {
     try {
-  
       for (const supplierId of selectedSupplierIds) {
         await axios.put(`http://localhost:3001/supplier/${supplierId}`, {
-            name: inputName.current.value,
-            email: inputEmail.current.value,
-            telephone: inputTel.current.value,
-            supplierType: select.current.value,
-            observation: inputObs.current.value,
+          name: data.name,
+          email: data.email,
+          telephone: data.telephone,
+          supplierType: data.supplierType,
+          observation: data.observation,
         });
       }
-  
-      const newSuppliers = suppliers.filter(
-        (supplier) => !selectedSupplierIds.includes(supplier._id)
-      );
+
+      const newSuppliers = suppliers.map((supplier) => {
+        if (selectedSupplierIds.includes(supplier._id)) {
+          // Se o fornecedor estiver entre os selecionados, atualize seus valores
+          return {
+            ...supplier,
+            name: data.name,
+            email: data.email,
+            telephone: data.telephone,
+            supplierType: data.supplierType,
+            observation: data.observation,
+          };
+        } else {
+          return supplier;
+        }
+      });
+
       setSuppliers(newSuppliers);
-  
+
       setSelectedSupplierIds([]);
-      
     } catch (error) {
       console.error("Erro ao atualizar fornecedores:", error);
     }
@@ -106,17 +143,9 @@ const App = () => {
       const selectedSupplier = suppliers.find(
         (supplier) => supplier._id === selectedSupplierId
       );
-  
+
       if (selectedSupplier) {
         setEditingSupplier(selectedSupplier);
-        setNewSupplierData({
-          name: selectedSupplier.name,
-          email: selectedSupplier.email,
-          supplierType: selectedSupplier.supplierType,
-          telephone: selectedSupplier.telephone,
-          observation: selectedSupplier.observation || "",
-        });
-  
         handleShow();
       }
     }
@@ -143,7 +172,7 @@ const App = () => {
     async function fetchSupplier() {
       try {
         const response = await axios.get("http://localhost:3001/supplier");
-        const newSupplier = response.data.data;
+        const newSupplier = response.data.data || [];
         setSuppliers(newSupplier);
       } catch (error) {
         console.error("Erro ao buscar fornecedores:", error);
@@ -153,30 +182,87 @@ const App = () => {
     fetchSupplier();
   }, []);
 
-  async function AddSupplier(newSupplierData) {
+  useEffect(() => {
+    if (editingSupplier) {
+      // Se estiver editando, atualize o modal com os dados do fornecedor editado
+      handleShow();
+    }
+  }, [editingSupplier]);
+
+  const AddSupplier = async (newSupplierData) => {
     try {
       const response = await axios.post("http://localhost:3001/supplier", {
-        name: inputName.current.value,
-        email: inputEmail.current.value,
-        telephone: inputTel.current.value,
-        supplierType: select.current.value,
-        observation: inputObs.current.value,
+        name: newSupplierData.name,
+        email: newSupplierData.email,
+        telephone: newSupplierData.telephone,
+        supplierType: newSupplierData.supplierType,
+        observation: newSupplierData.observation,
       });
 
       const newSupplier = response.data;
       setSuppliers((prevSuppliers) => [...prevSuppliers, newSupplier]);
     } catch (error) {
       console.error("Erro ao adicionar fornecedor:", error);
+      // Adicione um bloco de catch específico para o erro 500
+      if (error.response && error.response.status === 500) {
+        console.error("Erro interno do servidor:", error.response.data);
+      }
     }
-  }
+  };
 
   const reloadData = async () => {
     try {
       const response = await axios.get("http://localhost:3001/supplier");
-      const newSupplier = response.data.data;
-      setSuppliers(newSupplier);
+
+      if (response.data && Array.isArray(response.data.data)) {
+        const newSuppliers = response.data.data;
+        setSuppliers(newSuppliers);
+      } else if (Array.isArray(response.data)) {
+        const newSuppliers = response.data;
+        setSuppliers(newSuppliers);
+      } else {
+        console.error("A resposta da API não possui a propriedade esperada.");
+      }
     } catch (error) {
       console.error("Erro ao buscar fornecedores:", error);
+    }
+  };
+
+  const handleCheckboxFavoriteChange = async (supplierId) => {
+    const updatedSuppliers = suppliers.map((supplier) =>
+      supplier._id === supplierId
+        ? { ...supplier, isFavorite: !supplier.isFavorite }
+        : supplier
+    );
+
+    setSuppliers(updatedSuppliers);
+
+    // Chame a função para atualizar o banco de dados
+    await updateFavoriteStatus(
+      supplierId,
+      !suppliers.find((supplier) => supplier._id === supplierId).isFavorite
+    );
+  };
+
+  const updateFavoriteStatus = async (supplierId, isFavorite) => {
+    try {
+      const response = await axios.put(
+        `http://localhost:3001/supplier/${supplierId}`,
+        {
+          isFavorite: isFavorite,
+        }
+      );
+
+      if (response.data.success) {
+        reloadData();
+      } else {
+        console.error("A atualização não foi bem-sucedida:", response.data);
+      }
+    } catch (error) {
+      console.error(
+        "Erro ao atualizar o status do favorito no banco de dados:",
+        error
+      );
     }
   };
 
@@ -190,55 +276,98 @@ const App = () => {
             <Modal.Title>Novo Fornecedor</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <div className="informationOne">
-              <input ref={inputName} type="text" placeholder="Nome"></input>
-              <input ref={inputEmail} type="text" placeholder="E-mail"></input>
-              <select ref={select}>
-                <option value="">Tipo de Fornecedor</option>
-                <option value="opcao1">Atacadista</option>
-                <option value="opcao2">Distribuidor</option>
-                <option value="opcao3">Fabricante</option>
-                <option value="opcao4">Varejista</option>
-              </select>
-            </div>
-            <div className="informationTwo">
-              Telefones
-              <input
-                className="inputTel"
-                ref={inputTel}
-                placeholder="Número"
-              ></input>
-              <input className="inputTel" placeholder="Número"></input>
-            </div>
-            <div>
-              <input
-                ref={inputObs}
-                className="inputObs"
-                placeholder="Observação"
-              ></input>
+            <form noValidate onSubmit={handleSubmit(handleSaveChanges)}>
+              <div className="informationOne">
+                <div>
+                  <input
+                    {...register("name", {
+                      required: "O campo Nome é obrigatório.",
+                    })}
+                    type="text"
+                    placeholder="Nome"
+                  />
+                  <ErrorMessage>{errors.name?.message}</ErrorMessage>
+                </div>
+                <div>
+                  <input
+                    className="input"
+                    {...register("email", {
+                      required: "O campo E-mail é obrigatório.",
+                      pattern: {
+                        value: /\S+@\S+\.\S+/,
+                        message: "Digite um e-mail válido.",
+                      },
+                    })}
+                    type="text"
+                    placeholder="E-mail"
+                  />
+                  <ErrorMessage>{errors.email?.message}</ErrorMessage>
+                </div>
+                <div>
+                  <select {...register("supplierType")}>
+                    <option value="">Tipo de Fornecedor</option>
+                    <option value="Atacadista">Atacadista</option>
+                    <option value="Distribuidor">Distribuidor</option>
+                    <option value="Fabricante">Fabricante</option>
+                    <option value="Varejista">Varejista</option>
+                  </select>
+                  <ErrorMessage>{errors.supplierType?.message}</ErrorMessage>
+                </div>
+              </div>
+              <div className="informationTwo">
+                Telefones
+                <div className="divTel">
+                  <InputMask
+                    className="inputTel"
+                    mask="(99) 9 9999-9999"
+                    {...register("telephone")}
+                    error={errors.telephone?.message}
+                  />
+                  <AddCircleRoundedIcon />
+                </div>
+                <ErrorMessage>{errors.telephone?.message}</ErrorMessage>
+                <div className="divTel">
+                  <input
+                    className="inputTel"
+                    placeholder="Número"
+                    {...register("telephone2")}
+                  />
+                  <AddCircleRoundedIcon />
+                  <DeleteIcon />
+                </div>
+              </div>
+              <div>
+                <input
+                  className="inputObs"
+                  placeholder="Observação"
+                  {...register("observation")}
+                />
+              </div>
+              <div>
+                <Modal.Footer>
+                  <Button variant="primary" type="submit">
+                    Salvar
+                  </Button>
+                </Modal.Footer>
+              </div>
+            </form>
+            <div className="divClose">
+              <Button variant="secondary" onClick={handleClose}>
+                Fechar
+              </Button>
             </div>
           </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={handleClose}>
-              Close
-            </Button>
-            <Button variant="primary" onClick={handleSaveChanges}>
-              Save Changes
-            </Button>
-          </Modal.Footer>
         </CustomStyledModal>
-        <Button
+        <EditIcon
           onClick={handleEditSelected}
           disabled={selectedSupplierIds.length === 0}
-        >
-          Editar Selecionados
-        </Button>
-        <Button
+          style={{ opacity: selectedSupplierIds.length === 0 ? 0.5 : 1 }}
+        />
+        <DeleteIcon
           onClick={handleDeleteSelected}
           disabled={selectedSupplierIds.length === 0}
-        >
-          Excluir Selecionados
-        </Button>
+          style={{ opacity: selectedSupplierIds.length === 0 ? 0.5 : 1 }}
+        />
       </ContainerButtons>
       <ContainerTable>
         <Table striped bordered hover>
@@ -269,7 +398,27 @@ const App = () => {
                 <td>{supplier.supplierType}</td>
                 <td>{supplier.observation || ""}</td>
                 <td>
-                  <input type="checkbox" />
+                  {supplier.isFavorite ? (
+                    <StarIcon
+                      style={{ color: "gold", cursor: "pointer" }}
+                      onClick={() =>
+                        handleCheckboxFavoriteChange(
+                          supplier._id,
+                          supplier.isFavorite
+                        )
+                      }
+                    />
+                  ) : (
+                    <StarOutlineIcon
+                      style={{ color: "gray", cursor: "pointer" }}
+                      onClick={() =>
+                        handleCheckboxFavoriteChange(
+                          supplier._id,
+                          supplier.isFavorite
+                        )
+                      }
+                    />
+                  )}
                 </td>
               </tr>
             ))}
