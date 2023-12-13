@@ -49,6 +49,8 @@ export const ContainerButtons = styled.div`
 display: flex;
 padding: 10px;
 gap: 20px;
+width: 100%;
+
 `;
 export const Button = styled.button`
 width: 85px;
@@ -64,7 +66,8 @@ cursor: pointer;
     opacity: 0.5;
   }
 `;
-export const ContainerTable = styled.table`
+export const ContainerTable = styled.div`
+
 
 `;
 export const ErrorMessage = styled.p`

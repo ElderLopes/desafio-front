@@ -36,7 +36,7 @@ const App = () => {
         .required("O e-mail é obrigatório"),
       telephone: yup
         .string()
-        .matches(/^\(\d{2}\) \d{1} \d{4}-\d{4}$/, "Telefone inválido")
+        .matches(/^\(\d{2}\) \d{1} \d{4}-\d{4}$/, "O Telefone é obrigatório")
         .required("O Telefone é obrigatório"),
       supplierType: yup.string().required("O tipo de fornecedor é obrigatório"),
     })
@@ -45,6 +45,7 @@ const App = () => {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm({
     resolver: yupResolver(schema),
@@ -53,37 +54,41 @@ const App = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState([]);
 
-  const [, setNewSupplierData] = useState({
-    name: "",
-    email: "",
-    supplierType: "",
-    telephone: "",
-    observation: "",
-  });
-
   const [editingSupplier, setEditingSupplier] = useState(null);
 
+  const [showSecondTelephone, setShowSecondTelephone] = useState(false);
   const [show, setShow] = useState(false);
-
   const handleShow = () => setShow(true);
+
+  const handleAddTelephone = () => {
+    setShowSecondTelephone(true);
+  };
+
+  const handleDeleteTelephone = () => {
+    setShowSecondTelephone(false);
+    // Você pode limpar o valor do segundo telefone aqui, se necessário
+  };
+
   const handleClose = () => {
     setShow(false);
-    setNewSupplierData({
-      name: "",
-      email: "",
-      supplierType: "",
-      telephone: "",
-      observation: "",
-    });
+    reset();
+    setShowSecondTelephone(false);
   };
 
   const handleSaveChanges = async (data) => {
     try {
+      // Remova caracteres não numéricos dos números de telefone
+      const sanitizedData = {
+        ...data,
+        combinedTelephone: data.telephone2 ? `${data.telephone} / ${data.telephone2}` : data.telephone,
+      };
+
       if (editingSupplier) {
-        await EditSelected(data);
+        await EditSelected(sanitizedData);
       } else {
-        await AddSupplier(data);
+        await AddSupplier(sanitizedData);
       }
+
       handleClose();
       reloadData();
     } catch (error) {
@@ -97,7 +102,7 @@ const App = () => {
         await axios.put(`http://localhost:3001/supplier/${supplierId}`, {
           name: data.name,
           email: data.email,
-          telephone: data.telephone,
+          telephone: [data.telephone, data.telephone2],
           supplierType: data.supplierType,
           observation: data.observation,
         });
@@ -105,12 +110,11 @@ const App = () => {
 
       const newSuppliers = suppliers.map((supplier) => {
         if (selectedSupplierIds.includes(supplier._id)) {
-          // Se o fornecedor estiver entre os selecionados, atualize seus valores
           return {
             ...supplier,
             name: data.name,
             email: data.email,
-            telephone: data.telephone,
+            telephone: data.combinedTelephone,
             supplierType: data.supplierType,
             observation: data.observation,
           };
@@ -191,12 +195,14 @@ const App = () => {
 
   const AddSupplier = async (newSupplierData) => {
     try {
+      const { name, email, combinedTelephone, supplierType, observation } = newSupplierData;
+  
       const response = await axios.post("http://localhost:3001/supplier", {
-        name: newSupplierData.name,
-        email: newSupplierData.email,
-        telephone: newSupplierData.telephone,
-        supplierType: newSupplierData.supplierType,
-        observation: newSupplierData.observation,
+        name,
+        email,
+        telephone: combinedTelephone,
+        supplierType,
+        observation,
       });
 
       const newSupplier = response.data;
@@ -321,20 +327,23 @@ const App = () => {
                     className="inputTel"
                     mask="(99) 9 9999-9999"
                     {...register("telephone")}
-                    error={errors.telephone?.message}
                   />
-                  <AddCircleRoundedIcon />
+                  <AddCircleRoundedIcon onClick={handleAddTelephone} />
                 </div>
                 <ErrorMessage>{errors.telephone?.message}</ErrorMessage>
-                <div className="divTel">
-                  <input
-                    className="inputTel"
-                    placeholder="Número"
-                    {...register("telephone2")}
-                  />
-                  <AddCircleRoundedIcon />
-                  <DeleteIcon />
-                </div>
+                {showSecondTelephone && (
+                  <div className="divTel">
+                    <InputMask
+                      className="inputTel"
+                      mask="(99) 9 9999-9999"
+                      placeholder="Número"
+                      {...register("telephone2")}
+                    />
+                    <AddCircleRoundedIcon onClick={handleAddTelephone} />
+                    <DeleteIcon onClick={handleDeleteTelephone} />
+                  </div>
+                  
+                )}
               </div>
               <div>
                 <input
@@ -394,7 +403,7 @@ const App = () => {
                 </td>
                 <td>{supplier.name}</td>
                 <td>{supplier.email}</td>
-                <td>{supplier.telephone}</td>
+                <td>{Array.isArray(supplier.telephone) ? supplier.telephone.join(" / ") : supplier.telephone}</td>
                 <td>{supplier.supplierType}</td>
                 <td>{supplier.observation || ""}</td>
                 <td>
