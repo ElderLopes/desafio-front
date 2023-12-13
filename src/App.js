@@ -6,7 +6,6 @@ import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import axios from "axios";
 import Table from "react-bootstrap/Table";
-
 import "bootstrap/dist/css/bootstrap.min.css";
 import Modal from "react-bootstrap/Modal";
 
@@ -53,20 +52,16 @@ const App = () => {
 
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplierIds, setSelectedSupplierIds] = useState([]);
-
   const [editingSupplier, setEditingSupplier] = useState(null);
-
   const [showSecondTelephone, setShowSecondTelephone] = useState(false);
   const [show, setShow] = useState(false);
-  const handleShow = () => setShow(true);
 
+  const handleShow = () => setShow(true);
   const handleAddTelephone = () => {
     setShowSecondTelephone(true);
   };
-
   const handleDeleteTelephone = () => {
     setShowSecondTelephone(false);
-    // Você pode limpar o valor do segundo telefone aqui, se necessário
   };
 
   const handleClose = () => {
@@ -77,18 +72,17 @@ const App = () => {
 
   const handleSaveChanges = async (data) => {
     try {
-      // Remova caracteres não numéricos dos números de telefone
       const sanitizedData = {
         ...data,
-        combinedTelephone: data.telephone2 ? `${data.telephone} / ${data.telephone2}` : data.telephone,
+        combinedTelephone: data.telephone2
+          ? `${data.telephone} / ${data.telephone2}`
+          : data.telephone,
       };
-
       if (editingSupplier) {
         await EditSelected(sanitizedData);
       } else {
         await AddSupplier(sanitizedData);
       }
-
       handleClose();
       reloadData();
     } catch (error) {
@@ -122,9 +116,7 @@ const App = () => {
           return supplier;
         }
       });
-
       setSuppliers(newSuppliers);
-
       setSelectedSupplierIds([]);
     } catch (error) {
       console.error("Erro ao atualizar fornecedores:", error);
@@ -147,7 +139,6 @@ const App = () => {
       const selectedSupplier = suppliers.find(
         (supplier) => supplier._id === selectedSupplierId
       );
-
       if (selectedSupplier) {
         setEditingSupplier(selectedSupplier);
         handleShow();
@@ -165,7 +156,6 @@ const App = () => {
         (supplier) => !selectedSupplierIds.includes(supplier._id)
       );
       setSuppliers(newSuppliers);
-
       setSelectedSupplierIds([]);
     } catch (error) {
       console.error("Erro ao excluir fornecedores:", error);
@@ -182,21 +172,20 @@ const App = () => {
         console.error("Erro ao buscar fornecedores:", error);
       }
     }
-
     fetchSupplier();
   }, []);
 
   useEffect(() => {
     if (editingSupplier) {
-      // Se estiver editando, atualize o modal com os dados do fornecedor editado
       handleShow();
     }
   }, [editingSupplier]);
 
   const AddSupplier = async (newSupplierData) => {
     try {
-      const { name, email, combinedTelephone, supplierType, observation } = newSupplierData;
-  
+      const { name, email, combinedTelephone, supplierType, observation } =
+        newSupplierData;
+
       const response = await axios.post("http://localhost:3001/supplier", {
         name,
         email,
@@ -209,7 +198,6 @@ const App = () => {
       setSuppliers((prevSuppliers) => [...prevSuppliers, newSupplier]);
     } catch (error) {
       console.error("Erro ao adicionar fornecedor:", error);
-      // Adicione um bloco de catch específico para o erro 500
       if (error.response && error.response.status === 500) {
         console.error("Erro interno do servidor:", error.response.data);
       }
@@ -219,7 +207,6 @@ const App = () => {
   const reloadData = async () => {
     try {
       const response = await axios.get("http://localhost:3001/supplier");
-
       if (response.data && Array.isArray(response.data.data)) {
         const newSuppliers = response.data.data;
         setSuppliers(newSuppliers);
@@ -240,10 +227,7 @@ const App = () => {
         ? { ...supplier, isFavorite: !supplier.isFavorite }
         : supplier
     );
-
     setSuppliers(updatedSuppliers);
-
-    // Chame a função para atualizar o banco de dados
     await updateFavoriteStatus(
       supplierId,
       !suppliers.find((supplier) => supplier._id === supplierId).isFavorite
@@ -258,7 +242,6 @@ const App = () => {
           isFavorite: isFavorite,
         }
       );
-
       if (response.data.success) {
         reloadData();
       } else {
@@ -342,7 +325,6 @@ const App = () => {
                     <AddCircleRoundedIcon onClick={handleAddTelephone} />
                     <DeleteIcon onClick={handleDeleteTelephone} />
                   </div>
-                  
                 )}
               </div>
               <div>
@@ -403,7 +385,11 @@ const App = () => {
                 </td>
                 <td>{supplier.name}</td>
                 <td>{supplier.email}</td>
-                <td>{Array.isArray(supplier.telephone) ? supplier.telephone.join(" / ") : supplier.telephone}</td>
+                <td>
+                  {Array.isArray(supplier.telephone)
+                    ? supplier.telephone.join(" / ")
+                    : supplier.telephone}
+                </td>
                 <td>{supplier.supplierType}</td>
                 <td>{supplier.observation || ""}</td>
                 <td>
