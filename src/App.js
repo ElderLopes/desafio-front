@@ -23,7 +23,7 @@ import {
   ContainerTable,
   CustomStyledModal,
   ErrorMessage,
-} from "./styless";
+} from "./styles/styless";
 
 const App = () => {
   const schema = yup
